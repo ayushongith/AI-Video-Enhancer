@@ -12,6 +12,8 @@ from app.core.enhancers.base_enhancer import BaseEnhancer
 from app.core.enhancers.upscaler import Upscaler
 from app.core.enhancers.denoiser import Denoiser
 from app.core.enhancers.interpolator import FrameInterpolator
+from app.core.enhancers.dnn_upscaler import DNNUpscaler
+from app.core.enhancers.face_enhancer import FaceEnhancer
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,10 @@ class ProcessingPipeline:
         if self._config.noise_reduction > 0:
             self._enhancers.append(Denoiser(self._config.noise_reduction))
 
-        self._enhancers.append(Upscaler(self._config.resolution))
+        self._enhancers.append(DNNUpscaler(self._config.resolution))
+
+        if self._config.face_enhance:
+            self._enhancers.append(FaceEnhancer(enabled=True))
 
         if self._config.interpolation:
             self._enhancers.append(FrameInterpolator(enabled=True))

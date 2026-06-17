@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -15,18 +16,21 @@ from app.utils.constants import (
     SUPPORTED_VIDEO_EXTENSIONS, VIDEO_EXTENSIONS_FILTER,
     STYLESHEET, COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED,
     COLOR_ACCENT, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_BODY, FONT_MONO,
+    FONT_BODY, FONT_MONO, OUTPUTS_DIR,
 )
 from app.utils.config import ConfigManager
 from app.core.ffmpeg_detector import FFmpegDetector
 from app.core.video_loader import VideoLoader, VideoMetadata
 from app.core.processing_pipeline import ProcessingConfig
+from app.core.model_manager import ModelManager
+from app.core.history_manager import HistoryManager, HistoryEntry
 from app.gui.toolbar import MainToolbar
 from app.gui.sidebar import Sidebar
-from app.gui.screens import LandingScreen, ProcessingScreen, ResultScreen, PreviewScreen
+from app.gui.screens import LandingScreen, ProcessingScreen, ResultScreen, PreviewScreen, BatchScreen
 from app.gui.settings_panel import SettingsPanel
 from app.workers.metadata_worker import MetadataWorker
 from app.workers.processing_worker import ProcessingWorker
+from app.workers.batch_worker import BatchWorker
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +38,7 @@ SCREEN_HOME = 0
 SCREEN_PREVIEW = 1
 SCREEN_PROCESSING = 2
 SCREEN_RESULT = 3
+SCREEN_BATCH = 4
 
 
 class MainWindow(QMainWindow):
@@ -45,19 +50,24 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config: ConfigManager = config
         self._ffmpeg: FFmpegDetector = ffmpeg_detector
+        self._model_mgr = ModelManager()
+        self._history = HistoryManager()
         self._current_metadata: Optional[VideoMetadata] = None
         self._current_file_path: Optional[Path] = None
         self._meta_worker: Optional[MetadataWorker] = None
         self._proc_worker: Optional[ProcessingWorker] = None
+        self._batch_worker: Optional[BatchWorker] = None
 
         self._stack: Optional[QStackedWidget] = None
         self._landing: Optional[LandingScreen] = None
         self._preview: Optional[PreviewScreen] = None
         self._processing: Optional[ProcessingScreen] = None
         self._result: Optional[ResultScreen] = None
+        self._batch_screen: Optional[BatchScreen] = None
         self._settings_panel: Optional[SettingsPanel] = None
         self._status_ffmpeg: Optional[QLabel] = None
         self._status_msg: Optional[QLabel] = None
+        self._status_models: Optional[QLabel] = None
         self._sidebar: Optional[Sidebar] = None
 
         self._setup_window()
@@ -128,6 +138,12 @@ class MainWindow(QMainWindow):
         self._result.upscale_another.connect(self._on_upscale_another)
         self._stack.addWidget(self._result)
 
+        self._batch_screen = BatchScreen()
+        self._batch_screen.files_selected.connect(self._on_batch_files_selected)
+        self._batch_screen.start_batch.connect(self._on_batch_start)
+        self._batch_screen.cancel_batch.connect(self._on_batch_cancel)
+        self._stack.addWidget(self._batch_screen)
+
         content_layout.addWidget(self._stack)
         sidebar_splitter.addWidget(content_area)
         sidebar_splitter.setSizes([200, 1200])
@@ -159,6 +175,15 @@ class MainWindow(QMainWindow):
             f"background: transparent; padding: 0 10px;"
         )
         status_bar.addPermanentWidget(self._status_ffmpeg)
+
+        models = self._model_mgr.list_available()
+        downloaded = sum(1 for m in models if m["downloaded"])
+        self._status_models = QLabel(f"Models: {downloaded}/{len(models)}")
+        self._status_models.setStyleSheet(
+            f"color: {COLOR_MUTED}; font-size: 10px; font-family: {FONT_MONO}; "
+            f"background: transparent; padding: 0 10px;"
+        )
+        status_bar.addPermanentWidget(self._status_models)
 
         gpu_text = "GPU: Enabled" if self._config.gpu_enabled else "GPU: Disabled"
         gpu_label = QLabel(gpu_text)
@@ -232,7 +257,6 @@ class MainWindow(QMainWindow):
         msg.exec()
         if self._status_msg:
             self._status_msg.setText("Ready to enhance")
-        logger.error("Metadata error: %s", error_msg)
 
     def _start_enhance(self) -> None:
         if not self._current_metadata or not self._current_file_path:
@@ -254,7 +278,7 @@ class MainWindow(QMainWindow):
 
         from app.core.export_manager import ExportManager
         manager = ExportManager(
-            Path("outputs") if self._config is None else Path(self._config.output_directory)
+            Path(self._config.output_directory) if self._config else OUTPUTS_DIR
         )
         output_path = manager.generate_output_path(self._current_metadata, proc_config)
 
@@ -271,11 +295,27 @@ class MainWindow(QMainWindow):
 
     def _on_process_complete(self, result) -> None:
         self._processing.stop_processing()
+
+        if result.success and self._current_metadata:
+            entry = HistoryEntry(
+                filename=self._current_metadata.filename,
+                source_path=str(self._current_file_path or ""),
+                output_path=str(result.output_path or ""),
+                source_resolution=self._current_metadata.resolution,
+                output_resolution=result.metadata.get("resolution", ""),
+                source_size=self._current_metadata.size,
+                output_size=0,
+                duration_s=self._current_metadata.duration,
+                config={"format": self._config.to_dict() if hasattr(self._config, 'to_dict') else {}},
+                timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            self._history.add_entry(entry)
+
         if self._stack:
             self._stack.setCurrentIndex(SCREEN_RESULT)
         if self._status_msg:
             self._status_msg.setText("Enhancement complete")
-        self._sidebar.select_item(2)
+        self._sidebar.select_item(3)
 
     def _on_process_error(self, error_msg: str) -> None:
         self._processing.stop_processing()
@@ -284,8 +324,6 @@ class MainWindow(QMainWindow):
         msg.setWindowTitle("Processing Error")
         msg.setText(error_msg)
         msg.exec()
-        if self._status_msg:
-            self._status_msg.setText("Processing failed")
 
     def _on_cancel(self) -> None:
         if self._proc_worker and self._proc_worker.isRunning():
@@ -311,6 +349,69 @@ class MainWindow(QMainWindow):
             self._status_msg.setText("Ready to enhance")
         self._sidebar.select_item(0)
 
+    def _on_batch_files_selected(self, files: list) -> None:
+        if self._status_msg:
+            self._status_msg.setText(f"Batch: {len(files)} files ready")
+
+    def _on_batch_start(self) -> None:
+        if not self._batch_screen:
+            return
+
+        settings = self._settings_panel.get_settings() if self._settings_panel else {}
+        proc_config = ProcessingConfig(
+            resolution=settings.get("resolution", "1080p"),
+            mode=settings.get("mode", "Standard"),
+            face_enhance=settings.get("face_enhance", True),
+            noise_reduction=settings.get("noise_reduction", 40),
+            format=settings.get("format", "MP4 (H.264)"),
+            interpolation=settings.get("interpolation", False),
+        )
+
+        file_paths = self._batch_screen._files
+        if not file_paths:
+            return
+
+        self._batch_worker = BatchWorker(file_paths, proc_config)
+        self._batch_worker.progress.connect(self._on_batch_progress)
+        self._batch_worker.finished.connect(self._on_batch_complete)
+        self._batch_worker.start()
+
+        if self._status_msg:
+            self._status_msg.setText("Batch processing started...")
+
+    def _on_batch_progress(self, current: int, total: int, filename: str, status: str) -> None:
+        if self._batch_screen:
+            self._batch_screen.set_progress(current, total, filename, status)
+        if self._status_msg:
+            self._status_msg.setText(f"Batch: {filename} - {status}")
+
+    def _on_batch_complete(self, result) -> None:
+        if self._batch_screen:
+            self._batch_screen.reset()
+        total = result.total if hasattr(result, 'total') else 0
+        succeeded = result.succeeded if hasattr(result, 'succeeded') else 0
+        failed = result.failed if hasattr(result, 'failed') else 0
+
+        QMessageBox.information(
+            self,
+            "Batch Complete",
+            f"Batch processing finished.\n\n"
+            f"Total: {total}\n"
+            f"Completed: {succeeded}\n"
+            f"Failed: {failed}",
+        )
+        if self._status_msg:
+            self._status_msg.setText(f"Batch complete: {succeeded}/{total} succeeded")
+
+    def _on_batch_cancel(self) -> None:
+        if self._batch_worker and self._batch_worker.isRunning():
+            self._batch_worker.cancel()
+            self._batch_worker.wait(3000)
+        if self._batch_screen:
+            self._batch_screen.reset()
+        if self._status_msg:
+            self._status_msg.setText("Batch cancelled")
+
     def _on_nav_changed(self, item: str) -> None:
         if item == "Home":
             if self._proc_worker and self._proc_worker.isRunning():
@@ -318,6 +419,10 @@ class MainWindow(QMainWindow):
             self._processing.stop_processing()
             if self._stack:
                 self._stack.setCurrentIndex(SCREEN_HOME)
+        elif item == "Batch":
+            self._batch_screen.reset() if self._batch_screen else None
+            if self._stack:
+                self._stack.setCurrentIndex(SCREEN_BATCH)
         elif item == "Enhance":
             if self._current_metadata:
                 self._start_enhance()
@@ -334,11 +439,18 @@ class MainWindow(QMainWindow):
         pass
 
     def _on_about(self) -> None:
+        models = self._model_mgr.list_available()
+        model_status = "\n".join(
+            f"  {'[x]' if m['downloaded'] else '[ ]'} {m['description']}"
+            for m in models
+        )
         QMessageBox.about(
             self,
             "About AI Video Enhancer",
             f"AI Video Enhancer v1.0.0\n\n"
             f"FFmpeg: {'Available' if self._ffmpeg.available else 'Not Found'}\n"
-            f"GPU: {'Enabled' if self._config.gpu_enabled else 'Disabled'}\n\n"
+            f"GPU: {'Enabled' if self._config.gpu_enabled else 'Disabled'}\n"
+            f"History: {self._history.count} entries\n\n"
+            f"Models:\n{model_status}\n\n"
             f"Every pixel, elevated.",
         )

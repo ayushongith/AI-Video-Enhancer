@@ -5,6 +5,7 @@ APP_DIR: Path = PROJECT_ROOT / "app"
 OUTPUTS_DIR: Path = PROJECT_ROOT / "outputs"
 TEMP_DIR: Path = PROJECT_ROOT / "temp"
 LOGS_DIR: Path = PROJECT_ROOT / "logs"
+MODELS_DIR: Path = PROJECT_ROOT / "models"
 CONFIG_PATH: Path = PROJECT_ROOT / "config.json"
 LOG_FILE: Path = LOGS_DIR / "application.log"
 

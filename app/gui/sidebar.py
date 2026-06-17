@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 NAV_ITEMS = [
     ("Home", "\u2302"),
+    ("Batch", "\u2630"),
     ("Enhance", "\u2728"),
     ("Export", "\u2913"),
 ]
