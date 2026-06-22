@@ -14,6 +14,8 @@ class MainToolbar(QToolBar):
     open_clicked = Signal()
     settings_clicked = Signal()
     about_clicked = Signal()
+    presets_clicked = Signal()
+    shortcuts_clicked = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__("Main Toolbar", parent)
@@ -43,7 +45,24 @@ class MainToolbar(QToolBar):
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.addWidget(spacer)
 
+        presets_btn = QPushButton("\u2630")
+        presets_btn.setToolTip("Export Presets (Ctrl+P)")
+        presets_btn.setCursor(Qt.PointingHandCursor)
+        presets_btn.setFixedSize(32, 32)
+        presets_btn.clicked.connect(self.presets_clicked.emit)
+        presets_btn.setStyleSheet(
+            f"QPushButton {{"
+            f"  background-color: transparent; color: {COLOR_MUTED};"
+            f"  border: none; border-radius: 6px; font-size: 16px;"
+            f"}}"
+            f"QPushButton:hover {{"
+            f"  background-color: {COLOR_SURFACE}; color: {COLOR_TEXT};"
+            f"}}"
+        )
+        self.addWidget(presets_btn)
+
         settings_btn = QPushButton("\u2699")
+        settings_btn.setToolTip("Settings (Ctrl+S)")
         settings_btn.setCursor(Qt.PointingHandCursor)
         settings_btn.setFixedSize(32, 32)
         settings_btn.clicked.connect(self.settings_clicked.emit)
@@ -58,14 +77,32 @@ class MainToolbar(QToolBar):
         )
         self.addWidget(settings_btn)
 
-        about_btn = QPushButton("?")
+        shortcuts_btn = QPushButton("?")
+
+        shortcuts_btn.setToolTip("Keyboard Shortcuts (?)")
+        shortcuts_btn.setCursor(Qt.PointingHandCursor)
+        shortcuts_btn.setFixedSize(32, 32)
+        shortcuts_btn.clicked.connect(self.shortcuts_clicked.emit)
+        shortcuts_btn.setStyleSheet(
+            f"QPushButton {{"
+            f"  background-color: transparent; color: {COLOR_MUTED};"
+            f"  border: none; border-radius: 6px; font-size: 14px; font-weight: 600;"
+            f"}}"
+            f"QPushButton:hover {{"
+            f"  background-color: {COLOR_SURFACE}; color: {COLOR_TEXT};"
+            f"}}"
+        )
+        self.addWidget(shortcuts_btn)
+
+        about_btn = QPushButton("\u24D8")
+        about_btn.setToolTip("About")
         about_btn.setCursor(Qt.PointingHandCursor)
         about_btn.setFixedSize(32, 32)
         about_btn.clicked.connect(self.about_clicked.emit)
         about_btn.setStyleSheet(
             f"QPushButton {{"
             f"  background-color: transparent; color: {COLOR_MUTED};"
-            f"  border: none; border-radius: 6px; font-size: 14px; font-weight: 600;"
+            f"  border: none; border-radius: 6px; font-size: 14px;"
             f"}}"
             f"QPushButton:hover {{"
             f"  background-color: {COLOR_SURFACE}; color: {COLOR_TEXT};"

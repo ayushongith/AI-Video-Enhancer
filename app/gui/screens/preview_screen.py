@@ -18,6 +18,7 @@ from app.utils.constants import (
 )
 from app.core.video_loader import VideoMetadata
 from app.core.frame_extractor import FrameExtractor
+from app.gui.widgets.thumbnail_strip import ThumbnailStrip
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ class PreviewScreen(QWidget):
         self._current_frame: int = 0
         self._total_frames: int = 0
         self._metadata: Optional[VideoMetadata] = None
+        self._thumbnail_strip: Optional[ThumbnailStrip] = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -151,8 +153,19 @@ class PreviewScreen(QWidget):
 
         layout.addWidget(controls)
 
+        self._thumbnail_strip = ThumbnailStrip()
+        self._thumbnail_strip.frame_selected.connect(self._on_thumb_selected)
+        layout.addWidget(self._thumbnail_strip)
+
         self._play_timer = QTimer(self)
         self._play_timer.timeout.connect(self._play_next)
+
+    def _on_thumb_selected(self, frame_index: int) -> None:
+        self._on_seek(frame_index)
+
+    def set_thumbnails(self, frames: list, indices: list) -> None:
+        if self._thumbnail_strip:
+            self._thumbnail_strip.set_thumbnails(frames, indices)
 
     def load_video(self, metadata: VideoMetadata) -> None:
         self._metadata = metadata

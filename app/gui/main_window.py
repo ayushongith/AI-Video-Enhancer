@@ -24,13 +24,20 @@ from app.core.video_loader import VideoLoader, VideoMetadata
 from app.core.processing_pipeline import ProcessingConfig
 from app.core.model_manager import ModelManager
 from app.core.history_manager import HistoryManager, HistoryEntry
+from app.core.gpu_detector import GPUDetector
+from app.core.export_presets import ExportPresets, config_to_dict, dict_to_config
 from app.gui.toolbar import MainToolbar
 from app.gui.sidebar import Sidebar
 from app.gui.screens import LandingScreen, ProcessingScreen, ResultScreen, PreviewScreen, BatchScreen
 from app.gui.settings_panel import SettingsPanel
+from app.gui.dialogs.shortcuts_dialog import ShortcutsDialog
+from app.gui.dialogs.preset_dialog import PresetDialog
+from app.gui.widgets.comparison_view import ComparisonView
+from app.gui.widgets.thumbnail_strip import ThumbnailStrip
 from app.workers.metadata_worker import MetadataWorker
 from app.workers.processing_worker import ProcessingWorker
 from app.workers.batch_worker import BatchWorker
+from app.workers.thumbnail_worker import ThumbnailWorker
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +57,10 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._config: ConfigManager = config
         self._ffmpeg: FFmpegDetector = ffmpeg_detector
+        self._gpu = GPUDetector()
         self._model_mgr = ModelManager()
         self._history = HistoryManager()
+        self._presets = ExportPresets()
         self._current_metadata: Optional[VideoMetadata] = None
         self._current_file_path: Optional[Path] = None
         self._meta_worker: Optional[MetadataWorker] = None
@@ -69,6 +78,9 @@ class MainWindow(QMainWindow):
         self._status_msg: Optional[QLabel] = None
         self._status_models: Optional[QLabel] = None
         self._sidebar: Optional[Sidebar] = None
+        self._thumbnail_strip: Optional[ThumbnailStrip] = None
+        self._comparison_view: Optional[ComparisonView] = None
+        self._thumb_worker: Optional[ThumbnailWorker] = None
 
         self._setup_window()
         self._setup_ui()
@@ -81,6 +93,7 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 600)
         self.setAcceptDrops(True)
         self.setStyleSheet(STYLESHEET)
+        self._register_shortcuts()
 
         screen = self.screen()
         if screen:
@@ -100,6 +113,8 @@ class MainWindow(QMainWindow):
         toolbar.open_clicked.connect(self._on_open_video)
         toolbar.settings_clicked.connect(self._on_toggle_settings)
         toolbar.about_clicked.connect(self._on_about)
+        toolbar.presets_clicked.connect(self._on_presets)
+        toolbar.shortcuts_clicked.connect(self._on_shortcuts)
         main_layout.addWidget(toolbar)
 
         body = QWidget()
@@ -185,13 +200,14 @@ class MainWindow(QMainWindow):
         )
         status_bar.addPermanentWidget(self._status_models)
 
-        gpu_text = "GPU: Enabled" if self._config.gpu_enabled else "GPU: Disabled"
-        gpu_label = QLabel(gpu_text)
+        gpu_label = QLabel(self._gpu.acceleration_label)
         gpu_label.setStyleSheet(
             f"color: {COLOR_MUTED}; font-size: 10px; font-family: {FONT_MONO}; "
             f"background: transparent; padding: 0 10px;"
         )
         status_bar.addPermanentWidget(gpu_label)
+
+
 
     def _update_status_bar(self) -> None:
         if self._status_ffmpeg:
@@ -244,10 +260,19 @@ class MainWindow(QMainWindow):
         if self._status_msg:
             self._status_msg.setText(f"Loaded: {metadata.filename}")
 
+        self._thumb_worker = ThumbnailWorker(metadata, 12)
+        self._thumb_worker.finished.connect(self._on_thumbnails_ready)
+        self._thumb_worker.error.connect(lambda e: logger.debug("Thumbnail error: %s", e))
+        self._thumb_worker.start()
+
         if self._stack:
             self._stack.setCurrentIndex(SCREEN_PREVIEW)
         self._sidebar.select_item(1)
         logger.info("Video loaded: %s", metadata.filename)
+
+    def _on_thumbnails_ready(self, frames: list, indices: list) -> None:
+        if self._preview:
+            self._preview.set_thumbnails(frames, indices)
 
     def _on_metadata_error(self, error_msg: str) -> None:
         msg = QMessageBox(self)
@@ -438,6 +463,46 @@ class MainWindow(QMainWindow):
     def _on_settings_closed(self) -> None:
         pass
 
+    def _register_shortcuts(self) -> None:
+        from PySide6.QtGui import QShortcut, QKeySequence, QKeyEvent
+
+        mappings = {
+            "Ctrl+O": self._on_open_video,
+            "Ctrl+S": self._on_toggle_settings,
+            "Ctrl+E": lambda: self._on_nav_changed("Enhance") if self._current_metadata else None,
+            "Ctrl+B": lambda: self._on_nav_changed("Batch"),
+            "Ctrl+P": self._on_presets,
+            "Escape": lambda: self._on_nav_changed("Home"),
+        }
+        for seq, callback in mappings.items():
+            s = QShortcut(QKeySequence(seq), self)
+            s.activated.connect(callback)
+
+        question = QShortcut(QKeySequence("?"), self)
+        question.activated.connect(self._on_shortcuts)
+
+    def _on_presets(self) -> None:
+        settings = self._settings_panel.get_settings() if self._settings_panel else {}
+        current = ProcessingConfig(
+            resolution=settings.get("resolution", "1080p"),
+            mode=settings.get("mode", "Standard"),
+            face_enhance=settings.get("face_enhance", True),
+            noise_reduction=settings.get("noise_reduction", 40),
+            format=settings.get("format", "MP4 (H.264)"),
+            interpolation=settings.get("interpolation", False),
+        )
+        dialog = PresetDialog(self._presets, current, self)
+        dialog.preset_selected.connect(self._on_preset_selected)
+        dialog.exec()
+
+    def _on_preset_selected(self, name: str, config: ProcessingConfig) -> None:
+        logger.info("Preset applied: %s", name)
+        QMessageBox.information(self, "Preset Applied", f"Preset '{name}' applied.\n\nOpen Settings to adjust individual controls.")
+
+    def _on_shortcuts(self) -> None:
+        dialog = ShortcutsDialog(self)
+        dialog.exec()
+
     def _on_about(self) -> None:
         models = self._model_mgr.list_available()
         model_status = "\n".join(
@@ -449,8 +514,9 @@ class MainWindow(QMainWindow):
             "About AI Video Enhancer",
             f"AI Video Enhancer v1.0.0\n\n"
             f"FFmpeg: {'Available' if self._ffmpeg.available else 'Not Found'}\n"
-            f"GPU: {'Enabled' if self._config.gpu_enabled else 'Disabled'}\n"
+            f"GPU: {self._gpu.acceleration_label}\n"
             f"History: {self._history.count} entries\n\n"
             f"Models:\n{model_status}\n\n"
+            f"Press ? for keyboard shortcuts\n\n"
             f"Every pixel, elevated.",
         )
