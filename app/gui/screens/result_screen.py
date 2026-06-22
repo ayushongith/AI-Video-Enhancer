@@ -1,14 +1,13 @@
 import logging
 from typing import Optional
 
+import numpy as np
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QGridLayout, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal, QRect
-from PySide6.QtGui import (
-    QPainter, QColor, QPen, QFont, QLinearGradient,
-)
+from PySide6.QtGui import QPainter, QColor, QPen, QFont, QLinearGradient
 
 from app.utils.constants import (
     COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
@@ -16,95 +15,9 @@ from app.utils.constants import (
     FONT_DISPLAY, FONT_BODY, FONT_MONO, COLOR_SUCCESS, COLOR_ERROR,
 )
 from app.core.video_loader import VideoMetadata
+from app.gui.widgets.comparison_view import ComparisonView
 
 logger = logging.getLogger(__name__)
-
-
-class CompareSlider(QFrame):
-    def __init__(self, parent=None) -> None:
-        super().__init__(parent)
-        self.setFixedHeight(240)
-        self.setMinimumWidth(400)
-        self.setCursor(Qt.SplitHCursor)
-        self.setMouseTracking(True)
-        self._split_pos: float = 0.5
-        self._dragging: bool = False
-
-    def paintEvent(self, event) -> None:
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        w = self.width()
-        h = self.height()
-        split_x = int(w * self._split_pos)
-
-        left_rect = QRect(0, 0, split_x, h)
-        p.save()
-        p.setClipRect(left_rect)
-        p.fillRect(left_rect, QColor("#0d0d15"))
-        p.setFont(QFont(FONT_MONO.split(",")[0].strip(), 10))
-        p.setPen(QColor(COLOR_MUTED))
-        p.drawText(left_rect.adjusted(16, 0, -16, -12), Qt.AlignLeft | Qt.AlignBottom, "ORIGINAL")
-        p.setFont(QFont(FONT_DISPLAY.split(",")[0].strip(), 14, QFont.Bold))
-        p.setPen(QColor("#2a2a3a"))
-        p.drawText(left_rect, Qt.AlignCenter, "854x480")
-        for y in range(0, h, 3):
-            p.setPen(QColor(255, 255, 255, 4))
-            p.drawLine(0, y, split_x, y)
-        p.restore()
-
-        right_rect = QRect(split_x, 0, w - split_x, h)
-        p.save()
-        p.setClipRect(right_rect)
-        grad = QLinearGradient(0, 0, 0, h)
-        grad.setColorAt(0.0, QColor(COLOR_SURFACE).lighter(108))
-        grad.setColorAt(1.0, QColor(COLOR_SURFACE))
-        p.fillRect(right_rect, grad)
-        p.setFont(QFont(FONT_MONO.split(",")[0].strip(), 10))
-        p.setPen(QColor(COLOR_ACCENT_HOVER))
-        p.drawText(right_rect.adjusted(16, 0, -16, -12), Qt.AlignLeft | Qt.AlignBottom, "UPSCALED")
-        p.setFont(QFont(FONT_DISPLAY.split(",")[0].strip(), 14, QFont.Bold))
-        p.setPen(QColor(COLOR_ACCENT).lighter(130))
-        p.drawText(right_rect, Qt.AlignCenter, "3840x2160")
-        p.restore()
-
-        p.setPen(QPen(QColor(COLOR_ACCENT), 2))
-        p.drawLine(split_x, 0, split_x, h)
-        glow = QColor(COLOR_ACCENT)
-        glow.setAlpha(35)
-        p.setPen(QPen(glow, 10))
-        p.drawLine(split_x, 0, split_x, h)
-
-        handle_size = 36
-        hx, hy = split_x, h // 2
-        handle_grad = QLinearGradient(hx - handle_size // 2, hy - handle_size // 2,
-                                       hx + handle_size // 2, hy + handle_size // 2)
-        handle_grad.setColorAt(0.0, QColor(COLOR_ACCENT))
-        handle_grad.setColorAt(1.0, QColor(COLOR_ACCENT_HOVER))
-        p.setBrush(handle_grad)
-        p.setPen(Qt.NoPen)
-        p.drawRoundedRect(hx - 18, hy - 18, 36, 36, 18, 18)
-        p.setPen(QPen(QColor("#ffffff"), 1.5))
-        p.drawLine(hx - 7, hy, hx + 7, hy)
-        p.drawLine(hx - 5, hy - 4, hx - 7, hy)
-        p.drawLine(hx - 5, hy + 4, hx - 7, hy)
-        p.drawLine(hx + 5, hy - 4, hx + 7, hy)
-        p.drawLine(hx + 5, hy + 4, hx + 7, hy)
-
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton:
-            self._dragging = True
-            x = event.position().x()
-            self._split_pos = max(0.1, min(0.9, x / self.width()))
-            self.update()
-
-    def mouseMoveEvent(self, event) -> None:
-        if self._dragging:
-            x = event.position().x()
-            self._split_pos = max(0.1, min(0.9, x / self.width()))
-            self.update()
-
-    def mouseReleaseEvent(self, event) -> None:
-        self._dragging = False
 
 
 class _MetaRow(QFrame):
@@ -151,17 +64,51 @@ class _MetaRow(QFrame):
         layout.addWidget(after_w, 1)
 
 
+class _ModeButton(QPushButton):
+    def __init__(self, text: str, mode: int, parent=None) -> None:
+        super().__init__(text, parent)
+        self._mode = mode
+        self.setCheckable(True)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedHeight(32)
+        self.setStyleSheet(
+            f"QPushButton {{"
+            f"  background-color: transparent;"
+            f"  color: {COLOR_MUTED};"
+            f"  border: 1px solid {COLOR_BORDER};"
+            f"  border-radius: 6px;"
+            f"  font-family: {FONT_BODY}; font-size: 11px; font-weight: 500;"
+            f"  padding: 0 14px;"
+            f"}}"
+            f"QPushButton:hover {{"
+            f"  color: {COLOR_TEXT};"
+            f"  border-color: {COLOR_ACCENT};"
+            f"}}"
+            f"QPushButton:checked {{"
+            f"  background-color: {COLOR_ACCENT};"
+            f"  color: #ffffff;"
+            f"  border-color: {COLOR_ACCENT};"
+            f"}}"
+        )
+
+
 class ResultScreen(QWidget):
     upscale_another = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._comparison: Optional[ComparisonView] = None
+        self._mode_btns: list[_ModeButton] = []
+        self._meta_rows: list[_MetaRow] = []
+        self._meta_frame: Optional[QFrame] = None
+        self._before_frame: Optional[np.ndarray] = None
+        self._after_frame: Optional[np.ndarray] = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(48, 24, 48, 24)
-        layout.setSpacing(20)
+        layout.setSpacing(16)
 
         header = QLabel("Comparison")
         header.setStyleSheet(
@@ -170,15 +117,40 @@ class ResultScreen(QWidget):
         )
         layout.addWidget(header)
 
-        slider = CompareSlider()
-        layout.addWidget(slider)
+        self._comparison = ComparisonView()
+        self._comparison.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(self._comparison, stretch=1)
 
-        meta_frame = QFrame()
-        meta_frame.setStyleSheet(
+        mode_layout = QHBoxLayout()
+        mode_layout.setSpacing(8)
+        mode_label = QLabel("View:")
+        mode_label.setStyleSheet(
+            f"color: {COLOR_MUTED}; font-size: 11px; font-weight: 500; "
+            f"background: transparent;"
+        )
+        mode_layout.addWidget(mode_label)
+
+        modes = [
+            ("Slider", ComparisonView.MODE_SLIDER),
+            ("Side by Side", ComparisonView.MODE_SIDE_BY_SIDE),
+            ("Overlay", ComparisonView.MODE_OVERLAY),
+        ]
+        for text, mode in modes:
+            btn = _ModeButton(text, mode)
+            btn.clicked.connect(lambda checked, m=mode: self._on_mode_changed(m))
+            self._mode_btns.append(btn)
+            mode_layout.addWidget(btn)
+
+        self._mode_btns[0].setChecked(True)
+        mode_layout.addStretch()
+        layout.addLayout(mode_layout)
+
+        self._meta_frame = QFrame()
+        self._meta_frame.setStyleSheet(
             f"background-color: transparent; border: 1px solid {COLOR_BORDER}; "
             f"border-radius: 12px; padding: 16px;"
         )
-        meta_layout = QVBoxLayout(meta_frame)
+        meta_layout = QVBoxLayout(self._meta_frame)
         meta_layout.setSpacing(8)
         meta_layout.setContentsMargins(16, 16, 16, 16)
 
@@ -196,9 +168,10 @@ class ResultScreen(QWidget):
         ]
         for label, before, after in rows:
             row = _MetaRow(label, before, after)
+            self._meta_rows.append(row)
             meta_layout.addWidget(row)
 
-        layout.addWidget(meta_frame)
+        layout.addWidget(self._meta_frame)
 
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
@@ -244,4 +217,30 @@ class ResultScreen(QWidget):
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
-        layout.addStretch()
+    def _on_mode_changed(self, mode: int) -> None:
+        if self._comparison:
+            self._comparison.set_mode(mode)
+        for btn in self._mode_btns:
+            btn.setChecked(btn._mode == mode)
+
+    def show_comparison(
+        self,
+        before_frame: Optional[np.ndarray],
+        after_frame: Optional[np.ndarray],
+    ) -> None:
+        self._before_frame = before_frame
+        self._after_frame = after_frame
+        if self._comparison:
+            self._comparison.set_frames(before_frame, after_frame)
+
+    def set_metadata(self, rows: list[tuple[str, str, str]]) -> None:
+        meta_layout = self._meta_frame.layout()
+        for old_row in self._meta_rows:
+            meta_layout.removeWidget(old_row)
+            old_row.deleteLater()
+        self._meta_rows.clear()
+
+        for label, before, after in rows:
+            row = _MetaRow(label, before, after)
+            self._meta_rows.append(row)
+            meta_layout.addWidget(row)

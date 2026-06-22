@@ -23,16 +23,18 @@ class ProcessingWorker(QThread):
         config: ProcessingConfig,
         output_path: Optional[Path] = None,
         parent=None,
+        gpu_info=None,
     ) -> None:
         super().__init__(parent)
         self._metadata = metadata
         self._config = config
         self._output_path = output_path
+        self._gpu_info = gpu_info
         self._cancelled = False
 
     def run(self) -> None:
         try:
-            manager = ExportManager(OUTPUTS_DIR)
+            manager = ExportManager(OUTPUTS_DIR, gpu_info=self._gpu_info)
             result = manager.export(
                 self._metadata,
                 self._config,

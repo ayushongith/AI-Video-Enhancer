@@ -21,15 +21,17 @@ class BatchWorker(QThread):
         file_paths: list[Path],
         config: ProcessingConfig,
         parent=None,
+        gpu_info=None,
     ) -> None:
         super().__init__(parent)
         self._file_paths = file_paths
         self._config = config
+        self._gpu_info = gpu_info
         self._cancelled = False
 
     def run(self) -> None:
         try:
-            processor = BatchProcessor(OUTPUTS_DIR, self._config)
+            processor = BatchProcessor(OUTPUTS_DIR, self._config, gpu_info=self._gpu_info)
             items = processor.build_items(self._file_paths)
 
             result = BatchResult(total=len(items))

@@ -30,9 +30,10 @@ class BatchResult:
 
 
 class BatchProcessor:
-    def __init__(self, output_dir: Path, config: ProcessingConfig) -> None:
+    def __init__(self, output_dir: Path, config: ProcessingConfig, gpu_info=None) -> None:
         self._output_dir = output_dir
         self._config = config
+        self._gpu_info = gpu_info
         self._output_dir.mkdir(parents=True, exist_ok=True)
 
     def build_items(self, file_paths: list[Path]) -> list[BatchItem]:
@@ -81,7 +82,7 @@ class BatchProcessor:
             if progress_callback:
                 progress_callback(idx, len(items), item.file_path.name, "Processing...")
 
-            pipeline = ProcessingPipeline(self._config)
+            pipeline = ProcessingPipeline(self._config, gpu_info=self._gpu_info)
             proc_result = pipeline.process_video(
                 metadata,
                 item.output_path,

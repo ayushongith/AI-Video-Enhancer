@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class ExportManager:
-    def __init__(self, output_dir: Path) -> None:
+    def __init__(self, output_dir: Path, gpu_info=None) -> None:
         self._output_dir = output_dir
         self._output_dir.mkdir(parents=True, exist_ok=True)
+        self._gpu_info = gpu_info
 
     def generate_output_path(
         self,
@@ -42,7 +43,7 @@ class ExportManager:
 
         logger.info("Export starting: %s -> %s", metadata.filename, output_path)
 
-        pipeline = ProcessingPipeline(config)
+        pipeline = ProcessingPipeline(config, gpu_info=self._gpu_info)
         result = pipeline.process_video(
             metadata, output_path, progress_callback,
         )

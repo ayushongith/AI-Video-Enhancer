@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[int, int, str], None]
 
+try:
+    from app.core.checkpointer import Checkpointer
+except ImportError:
+    Checkpointer = None  # type: ignore
+
+try:
+    from app.core.gpu_detector import GPUInfo
+except ImportError:
+    GPUInfo = None  # type: ignore
+
 
 @dataclass
 class ProcessingConfig:
@@ -38,13 +48,33 @@ class ProcessingResult:
     processed_frames: int = 0
     error: Optional[str] = None
     metadata: dict = field(default_factory=dict)
+    before_frame: Optional["np.ndarray"] = None
+    after_frame: Optional["np.ndarray"] = None
 
 
 class ProcessingPipeline:
-    def __init__(self, config: Optional[ProcessingConfig] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[ProcessingConfig] = None,
+        gpu_info: Optional["GPUInfo"] = None,
+    ) -> None:
         self._config = config or ProcessingConfig()
+        self._gpu_info = gpu_info
         self._enhancers: list[BaseEnhancer] = []
+        self._configure_backend()
         self._build_chain()
+
+    def _configure_backend(self) -> None:
+        if self._gpu_info is not None and self._gpu_info.cuda_available and self._gpu_info.opencv_cuda_build:
+            try:
+                cv2.setUseOptimized(True)
+                cv2.setNumThreads(self._gpu_info.num_threads)
+                logger.info("Pipeline: CUDA backend configured (%d threads)", self._gpu_info.num_threads)
+            except Exception:
+                logger.debug("Pipeline: CUDA config failed, using CPU")
+        elif self._gpu_info is not None:
+            cv2.setNumThreads(self._gpu_info.num_threads)
+            logger.info("Pipeline: CPU backend configured (%d threads)", self._gpu_info.num_threads)
 
     def _build_chain(self) -> None:
         self._enhancers.clear()
@@ -73,6 +103,7 @@ class ProcessingPipeline:
         metadata: VideoMetadata,
         output_path: Path,
         progress_callback: Optional[ProgressCallback] = None,
+        checkpointer: Optional["Checkpointer"] = None,
     ) -> ProcessingResult:
         logger.info(
             "Starting pipeline: %s -> %s (%d enhancers)",
@@ -98,34 +129,63 @@ class ProcessingPipeline:
             }
             fourcc = fourcc_map.get(self._config.format, cv2.VideoWriter_fourcc(*"avc1"))
 
-            first = extractor.read_frame()
-            if first is None:
-                extractor.close()
-                return ProcessingResult(success=False, error="Empty video")
+            start_frame = 0
+            out_h, out_w = 0, 0
+            is_color = True
+            if checkpointer is not None and checkpointer.has_checkpoint:
+                cp = checkpointer.load()
+                if cp is not None:
+                    start_frame = cp.resume_from
+                    logger.info("Resuming from frame %d", start_frame)
 
-            for enhancer in self._enhancers:
-                first = enhancer.process(first).frame
+            if start_frame == 0:
+                first = extractor.read_frame()
+                if first is None:
+                    extractor.close()
+                    return ProcessingResult(success=False, error="Empty video")
 
-            out_h, out_w = first.shape[:2]
-            is_color = len(first.shape) == 3
+                result.before_frame = first.copy()
 
-            writer = cv2.VideoWriter(
-                str(output_path), fourcc, fps, (out_w, out_h), is_color,
-            )
+                processed_first = first
+                for enhancer in self._enhancers:
+                    processed_first = enhancer.process(processed_first).frame
 
-            processed = 1
-            writer.write(first)
+                out_h, out_w = processed_first.shape[:2]
+                is_color = len(processed_first.shape) == 3
 
-            if progress_callback:
-                progress_callback(processed, total, f"Frame {processed}/{total}")
+                writer = cv2.VideoWriter(
+                    str(output_path), fourcc, fps, (out_w, out_h), is_color,
+                )
 
-            for idx, frame in extractor.extract_frames(start=1):
+                processed = 1
+                writer.write(processed_first)
+
+                if progress_callback:
+                    progress_callback(processed, total, f"Frame {processed}/{total}")
+
+                if checkpointer is not None:
+                    checkpointer.update(0, total, output=str(output_path))
+                    checkpointer.save()
+            else:
+                writer = cv2.VideoWriter(
+                    str(output_path), fourcc, fps, (out_w, out_h), is_color,
+                )
+                processed = start_frame
+
+            last_frame = None
+            for idx, frame in extractor.extract_frames(start=start_frame):
                 current = frame
                 for enhancer in self._enhancers:
                     current = enhancer.process(current).frame
                 writer.write(current)
+                last_frame = current
 
                 processed += 1
+
+                if checkpointer is not None and processed % max(1, total // 20) == 0:
+                    checkpointer.update(processed - 1, total)
+                    checkpointer.save()
+
                 if progress_callback and processed % max(1, total // 100) == 0:
                     progress_callback(processed, total, f"Frame {processed}/{total}")
 
@@ -135,6 +195,8 @@ class ProcessingPipeline:
             result.success = True
             result.output_path = output_path
             result.processed_frames = processed
+            if last_frame is not None:
+                result.after_frame = last_frame.copy()
             result.metadata = {
                 "resolution": f"{out_w}x{out_h}",
                 "fps": fps,

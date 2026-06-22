@@ -207,8 +207,6 @@ class MainWindow(QMainWindow):
         )
         status_bar.addPermanentWidget(gpu_label)
 
-
-
     def _update_status_bar(self) -> None:
         if self._status_ffmpeg:
             self._status_ffmpeg.setText(self._ffmpeg.status_text)
@@ -309,6 +307,7 @@ class MainWindow(QMainWindow):
 
         self._proc_worker = ProcessingWorker(
             self._current_metadata, proc_config, output_path,
+            gpu_info=self._gpu.info,
         )
         self._proc_worker.progress.connect(self._on_process_progress)
         self._proc_worker.finished.connect(self._on_process_complete)
@@ -322,6 +321,22 @@ class MainWindow(QMainWindow):
         self._processing.stop_processing()
 
         if result.success and self._current_metadata:
+            if self._result:
+                self._result.show_comparison(
+                    getattr(result, "before_frame", None),
+                    getattr(result, "after_frame", None),
+                )
+                meta_rows = [
+                    ("Resolution",
+                     self._current_metadata.resolution,
+                     result.metadata.get("resolution", "")),
+                ]
+                if self._current_metadata.bitrate:
+                    meta_rows.append(("Bitrate", self._current_metadata.bitrate, result.metadata.get("bitrate", "")))
+                if self._current_metadata.size:
+                    meta_rows.append(("File size", self._current_metadata.size, ""))
+                self._result.set_metadata(meta_rows)
+
             entry = HistoryEntry(
                 filename=self._current_metadata.filename,
                 source_path=str(self._current_file_path or ""),
@@ -396,7 +411,7 @@ class MainWindow(QMainWindow):
         if not file_paths:
             return
 
-        self._batch_worker = BatchWorker(file_paths, proc_config)
+        self._batch_worker = BatchWorker(file_paths, proc_config, gpu_info=self._gpu.info)
         self._batch_worker.progress.connect(self._on_batch_progress)
         self._batch_worker.finished.connect(self._on_batch_complete)
         self._batch_worker.start()
