@@ -19,6 +19,7 @@ from app.utils.constants import (
 from app.core.video_loader import VideoMetadata
 from app.core.frame_extractor import FrameExtractor
 from app.gui.widgets.thumbnail_strip import ThumbnailStrip
+from app.gui.video_info_panel import VideoInfoPanel
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ class PreviewScreen(QWidget):
         self._total_frames: int = 0
         self._metadata: Optional[VideoMetadata] = None
         self._thumbnail_strip: Optional[ThumbnailStrip] = None
+        self._info_panel: Optional[VideoInfoPanel] = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -96,6 +98,25 @@ class PreviewScreen(QWidget):
         header.addWidget(self._frame_label)
         header.addStretch()
         layout.addLayout(header)
+
+        self._info_panel = VideoInfoPanel()
+        self._info_panel.setVisible(False)
+        layout.addWidget(self._info_panel)
+
+        self._info_toggle = QPushButton("Show Info")
+        self._info_toggle.setFixedHeight(28)
+        self._info_toggle.setCursor(Qt.PointingHandCursor)
+        self._info_toggle.setStyleSheet(
+            f"QPushButton {{"
+            f"  background: transparent; color: {COLOR_MUTED}; border: 1px solid {COLOR_BORDER};"
+            f"  border-radius: 14px; font-size: 10px; font-family: {FONT_BODY}; padding: 0 12px;"
+            f"}}"
+            f"QPushButton:hover {{ color: {COLOR_TEXT}; border-color: {COLOR_ACCENT}; }}"
+        )
+        self._info_toggle.clicked.connect(
+            lambda: self._info_panel.setVisible(not self._info_panel.isVisible())
+        )
+        header.addWidget(self._info_toggle)
 
         self._canvas = VideoCanvas()
         layout.addWidget(self._canvas, stretch=1)
@@ -178,6 +199,9 @@ class PreviewScreen(QWidget):
         self._current_frame = 0
         self._timeline.setRange(0, max(0, self._total_frames - 1))
         self._timeline.setValue(0)
+
+        if self._info_panel:
+            self._info_panel.display_metadata(metadata)
 
         frame = self._extractor.seek_frame(0)
         if frame is not None:

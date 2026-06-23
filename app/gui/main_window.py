@@ -151,6 +151,7 @@ class MainWindow(QMainWindow):
 
         self._result = ResultScreen()
         self._result.upscale_another.connect(self._on_upscale_another)
+        self._result.download_requested.connect(self._on_download_video)
         self._stack.addWidget(self._result)
 
         self._batch_screen = BatchScreen()
@@ -167,6 +168,7 @@ class MainWindow(QMainWindow):
 
         self._settings_panel = SettingsPanel()
         self._settings_panel.closed.connect(self._on_settings_closed)
+        self._settings_panel.settings_changed.connect(self._on_settings_changed)
         body_layout.addWidget(self._settings_panel)
 
         main_layout.addWidget(body, stretch=1)
@@ -326,6 +328,8 @@ class MainWindow(QMainWindow):
                     getattr(result, "before_frame", None),
                     getattr(result, "after_frame", None),
                 )
+                if result.output_path:
+                    self._result.set_output_path(str(result.output_path))
                 meta_rows = [
                     ("Resolution",
                      self._current_metadata.resolution,
@@ -378,6 +382,27 @@ class MainWindow(QMainWindow):
         if self._status_msg:
             self._status_msg.setText("Cancelled")
         self._sidebar.select_item(0)
+
+    def _on_download_video(self, source_path: str) -> None:
+        from pathlib import Path as P
+        src = P(source_path)
+        if not src.exists():
+            QMessageBox.warning(self, "File Not Found", f"Output file not found:\n{source_path}")
+            return
+
+        dest, _ = QFileDialog.getSaveFileName(
+            self, "Save Upscaled Video", src.name,
+            "Video Files (*.mp4 *.mov *.webm);;All Files (*.*)",
+        )
+        if dest:
+            import shutil
+            try:
+                shutil.copy2(str(src), dest)
+                if self._status_msg:
+                    self._status_msg.setText(f"Saved to {P(dest).name}")
+                logger.info("Video saved to %s", dest)
+            except Exception as e:
+                QMessageBox.critical(self, "Save Error", f"Could not save file:\n{e}")
 
     def _on_upscale_another(self) -> None:
         self._current_metadata = None
@@ -474,6 +499,9 @@ class MainWindow(QMainWindow):
     def _on_toggle_settings(self) -> None:
         if self._settings_panel:
             self._settings_panel.toggle()
+
+    def _on_settings_changed(self, settings: dict) -> None:
+        logger.debug("Settings changed: %s", settings)
 
     def _on_settings_closed(self) -> None:
         pass

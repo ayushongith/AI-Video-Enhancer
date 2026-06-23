@@ -25,9 +25,6 @@ class CircularProgress(QFrame):
         super().__init__(parent)
         self.setFixedSize(200, 200)
         self._progress: float = 0.0
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._tick)
-        self._progress = 0.0
 
     def set_progress(self, value: float) -> None:
         self._progress = max(0.0, min(1.0, value))
@@ -82,18 +79,12 @@ class CircularProgress(QFrame):
         p.setPen(QColor(COLOR_MUTED))
         p.drawText(QRect(0, cy + 30, w, 20), Qt.AlignCenter, "PROCESSING")
 
-    def _tick(self) -> None:
-        pass
-
-
 class ProcessingScreen(QWidget):
     cancelled = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._progress_ring: Optional[CircularProgress] = None
-        self._sim_timer: Optional[QTimer] = None
-        self._sim_progress: float = 0.0
         self._setup_ui()
 
     def _setup_ui(self) -> None:

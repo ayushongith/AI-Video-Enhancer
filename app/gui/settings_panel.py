@@ -135,6 +135,20 @@ class SettingsPanel(QFrame):
         self._is_open: bool = False
         self._animation: Optional[QPropertyAnimation] = None
         self._setup_ui()
+        self._connect_changes()
+
+    def _connect_changes(self) -> None:
+        self._res_toggle.changed.connect(lambda v: self._emit_settings())
+        self._face_toggle.toggled.connect(lambda v: self._emit_settings())
+        self._gpu_toggle.toggled.connect(lambda v: self._emit_settings())
+        self._noise_slider.valueChanged.connect(lambda v: self._emit_settings())
+        self._format_combo.currentTextChanged.connect(lambda v: self._emit_settings())
+        self._interp_toggle.toggled.connect(lambda v: self._emit_settings())
+        for btn in self._mode_group.buttons():
+            btn.clicked.connect(lambda: self._emit_settings())
+
+    def _emit_settings(self) -> None:
+        self.settings_changed.emit(self.get_settings())
 
     def _setup_ui(self) -> None:
         self.setStyleSheet(
@@ -302,6 +316,10 @@ class SettingsPanel(QFrame):
         )
         scroll_layout.addWidget(self._format_combo)
 
+        scroll_layout.addWidget(_SectionHeader("GPU ACCELERATION"))
+        self._gpu_toggle = _Toggle("Enable GPU acceleration", True)
+        scroll_layout.addWidget(self._gpu_toggle)
+
         scroll_layout.addWidget(_SectionHeader("FRAME INTERPOLATION"))
         self._interp_toggle = _Toggle("Convert 24fps to 60fps", False)
         scroll_layout.addWidget(self._interp_toggle)
@@ -345,6 +363,7 @@ class SettingsPanel(QFrame):
             "resolution": resolution,
             "mode": mode,
             "face_enhance": self._face_toggle.is_checked(),
+            "gpu_enabled": self._gpu_toggle.is_checked(),
             "noise_reduction": self._noise_slider.value(),
             "format": self._format_combo.currentText(),
             "interpolation": self._interp_toggle.is_checked(),

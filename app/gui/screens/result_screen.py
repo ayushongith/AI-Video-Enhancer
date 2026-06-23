@@ -94,6 +94,7 @@ class _ModeButton(QPushButton):
 
 class ResultScreen(QWidget):
     upscale_another = Signal()
+    download_requested = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -103,6 +104,7 @@ class ResultScreen(QWidget):
         self._meta_frame: Optional[QFrame] = None
         self._before_frame: Optional[np.ndarray] = None
         self._after_frame: Optional[np.ndarray] = None
+        self._output_path: Optional[str] = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -192,6 +194,7 @@ class ResultScreen(QWidget):
             f"    stop:0 {COLOR_ACCENT_HOVER}, stop:1 #c4b5fd);"
             f"}}"
         )
+        download_btn.clicked.connect(self._on_download)
         btn_layout.addWidget(download_btn)
 
         again_btn = QPushButton("Upscale Another")
@@ -222,6 +225,13 @@ class ResultScreen(QWidget):
             self._comparison.set_mode(mode)
         for btn in self._mode_btns:
             btn.setChecked(btn._mode == mode)
+
+    def set_output_path(self, path: str) -> None:
+        self._output_path = path
+
+    def _on_download(self) -> None:
+        if self._output_path:
+            self.download_requested.emit(self._output_path)
 
     def show_comparison(
         self,
