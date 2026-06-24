@@ -19,6 +19,7 @@ NAV_ITEMS = [
     ("Batch", "\u2630"),
     ("Enhance", "\u2728"),
     ("Export", "\u2913"),
+    ("History", "\u29D6"),
 ]
 
 

@@ -3,6 +3,7 @@ import logging
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 
 from app.utils.constants import CONFIG_PATH, LOG_FILE
 from app.utils.logger import setup_logger
@@ -26,6 +27,19 @@ def main() -> None:
         app = QApplication(sys.argv)
         app.setApplicationName("AI Video Enhancer")
         app.setOrganizationName("AIVideoEnhancer")
+
+        icon = QPixmap(64, 64)
+        icon.fill(Qt.transparent)
+        p = QPainter(icon)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setBrush(QColor("#6C63FF"))
+        p.setPen(Qt.NoPen)
+        p.drawRoundedRect(4, 4, 56, 56, 12, 12)
+        p.setFont(QFont("Segoe UI", 28, QFont.Bold))
+        p.setPen(QColor("#ffffff"))
+        p.drawText(icon.rect(), Qt.AlignCenter, "AI")
+        p.end()
+        app.setWindowIcon(QIcon(icon))
 
         window = MainWindow(config, ffmpeg)
         window.show()

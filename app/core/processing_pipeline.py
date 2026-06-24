@@ -197,10 +197,12 @@ class ProcessingPipeline:
             result.processed_frames = processed
             if last_frame is not None:
                 result.after_frame = last_frame.copy()
+            duration_s = (processed / fps) if fps > 0 else 0
             result.metadata = {
                 "resolution": f"{out_w}x{out_h}",
                 "fps": fps,
                 "format": self._config.format,
+                "duration": duration_s,
             }
 
             logger.info(

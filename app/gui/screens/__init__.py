@@ -3,5 +3,6 @@ from app.gui.screens.processing_screen import ProcessingScreen
 from app.gui.screens.result_screen import ResultScreen
 from app.gui.screens.preview_screen import PreviewScreen
 from app.gui.screens.batch_screen import BatchScreen
+from app.gui.screens.history_screen import HistoryScreen
 
-__all__ = ["LandingScreen", "ProcessingScreen", "ResultScreen", "PreviewScreen", "BatchScreen"]
+__all__ = ["LandingScreen", "ProcessingScreen", "ResultScreen", "PreviewScreen", "BatchScreen", "HistoryScreen"]

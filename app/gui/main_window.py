@@ -28,7 +28,7 @@ from app.core.gpu_detector import GPUDetector
 from app.core.export_presets import ExportPresets, config_to_dict, dict_to_config
 from app.gui.toolbar import MainToolbar
 from app.gui.sidebar import Sidebar
-from app.gui.screens import LandingScreen, ProcessingScreen, ResultScreen, PreviewScreen, BatchScreen
+from app.gui.screens import LandingScreen, ProcessingScreen, ResultScreen, PreviewScreen, BatchScreen, HistoryScreen
 from app.gui.settings_panel import SettingsPanel
 from app.gui.dialogs.shortcuts_dialog import ShortcutsDialog
 from app.gui.dialogs.preset_dialog import PresetDialog
@@ -41,11 +41,23 @@ from app.workers.thumbnail_worker import ThumbnailWorker
 
 logger = logging.getLogger(__name__)
 
+
+def _format_size(size_bytes: int) -> str:
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 ** 2:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 ** 3:
+        return f"{size_bytes / 1024 ** 2:.1f} MB"
+    else:
+        return f"{size_bytes / 1024 ** 3:.2f} GB"
+
 SCREEN_HOME = 0
 SCREEN_PREVIEW = 1
 SCREEN_PROCESSING = 2
 SCREEN_RESULT = 3
 SCREEN_BATCH = 4
+SCREEN_HISTORY = 5
 
 
 class MainWindow(QMainWindow):
@@ -81,6 +93,7 @@ class MainWindow(QMainWindow):
         self._thumbnail_strip: Optional[ThumbnailStrip] = None
         self._comparison_view: Optional[ComparisonView] = None
         self._thumb_worker: Optional[ThumbnailWorker] = None
+        self._history_screen: Optional[HistoryScreen] = None
 
         self._setup_window()
         self._setup_ui()
@@ -159,6 +172,10 @@ class MainWindow(QMainWindow):
         self._batch_screen.start_batch.connect(self._on_batch_start)
         self._batch_screen.cancel_batch.connect(self._on_batch_cancel)
         self._stack.addWidget(self._batch_screen)
+
+        self._history_screen = HistoryScreen()
+        self._history_screen.open_result.connect(self._on_history_open)
+        self._stack.addWidget(self._history_screen)
 
         content_layout.addWidget(self._stack)
         sidebar_splitter.addWidget(content_area)
@@ -335,10 +352,20 @@ class MainWindow(QMainWindow):
                      self._current_metadata.resolution,
                      result.metadata.get("resolution", "")),
                 ]
-                if self._current_metadata.bitrate:
-                    meta_rows.append(("Bitrate", self._current_metadata.bitrate, result.metadata.get("bitrate", "")))
-                if self._current_metadata.size:
-                    meta_rows.append(("File size", self._current_metadata.size, ""))
+                out_path = Path(result.output_path) if result.output_path else None
+                output_size_str = ""
+                output_bitrate_str = ""
+                if out_path and out_path.exists():
+                    size_bytes = out_path.stat().st_size
+                    output_size_str = _format_size(size_bytes)
+                    if result.metadata.get("fps") and result.metadata.get("duration"):
+                        fps_v = result.metadata["fps"]
+                        dur_s = result.metadata["duration"]
+                        if fps_v and dur_s:
+                            total_bits = size_bytes * 8
+                            output_bitrate_str = f"{total_bits / dur_s / 1_000_000:.1f} Mbps"
+                meta_rows.append(("Bitrate", self._current_metadata.bitrate or "-", output_bitrate_str or "-"))
+                meta_rows.append(("File size", self._current_metadata.size or "-", output_size_str or "-"))
                 self._result.set_metadata(meta_rows)
 
             entry = HistoryEntry(
@@ -382,6 +409,16 @@ class MainWindow(QMainWindow):
         if self._status_msg:
             self._status_msg.setText("Cancelled")
         self._sidebar.select_item(0)
+
+    def _on_history_open(self, output_path: str) -> None:
+        from pathlib import Path as P
+        p = P(output_path)
+        if p.exists():
+            import subprocess
+            try:
+                subprocess.Popen(["explorer", "/select,", str(p)])
+            except Exception:
+                QMessageBox.information(self, "File Location", str(p))
 
     def _on_download_video(self, source_path: str) -> None:
         from pathlib import Path as P
@@ -491,6 +528,11 @@ class MainWindow(QMainWindow):
         elif item == "Enhance":
             if self._current_metadata:
                 self._start_enhance()
+        elif item == "History":
+            if self._history_screen:
+                self._history_screen.load_entries(self._history.get_all())
+            if self._stack:
+                self._stack.setCurrentIndex(SCREEN_HISTORY)
         elif item == "Export":
             if self._current_metadata:
                 if self._stack:
