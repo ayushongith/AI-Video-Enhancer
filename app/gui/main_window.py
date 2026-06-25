@@ -156,6 +156,7 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._landing)
 
         self._preview = PreviewScreen()
+        self._preview.enhance_requested.connect(self._start_enhance)
         self._stack.addWidget(self._preview)
 
         self._processing = ProcessingScreen()
@@ -236,9 +237,18 @@ class MainWindow(QMainWindow):
 
     def dropEvent(self, event: QDropEvent) -> None:
         urls = event.mimeData().urls()
-        if urls:
-            file_path = Path(urls[0].toLocalFile())
-            self._process_video(file_path)
+        if not urls:
+            return
+        paths = [Path(u.toLocalFile()) for u in urls if u.isLocalFile()]
+        if len(paths) == 1:
+            self._process_video(paths[0])
+        elif len(paths) > 1:
+            valid = [p for p in paths if VideoLoader.validate_file(p)[0]]
+            if valid and self._batch_screen:
+                self._batch_screen.add_files(valid)
+                if self._stack:
+                    self._stack.setCurrentIndex(SCREEN_BATCH)
+                self._sidebar.select_item(1)
 
     def _on_landing_cta(self, path: str) -> None:
         if path == "__open_dialog__":
@@ -543,7 +553,12 @@ class MainWindow(QMainWindow):
             self._settings_panel.toggle()
 
     def _on_settings_changed(self, settings: dict) -> None:
-        logger.debug("Settings changed: %s", settings)
+        if self._config:
+            for key in ("resolution", "mode", "format"):
+                if key in settings:
+                    self._config.set(f"last_{key}", settings[key])
+            if "gpu_enabled" in settings:
+                self._config.gpu_enabled = settings["gpu_enabled"]
 
     def _on_settings_closed(self) -> None:
         pass
@@ -582,7 +597,8 @@ class MainWindow(QMainWindow):
 
     def _on_preset_selected(self, name: str, config: ProcessingConfig) -> None:
         logger.info("Preset applied: %s", name)
-        QMessageBox.information(self, "Preset Applied", f"Preset '{name}' applied.\n\nOpen Settings to adjust individual controls.")
+        if self._settings_panel:
+            self._settings_panel.apply_preset(config)
 
     def _on_shortcuts(self) -> None:
         dialog = ShortcutsDialog(self)

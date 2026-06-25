@@ -29,6 +29,28 @@ class CircularProgress(QFrame):
         self._anim_timer = QTimer(self)
         self._anim_timer.timeout.connect(self._animate_step)
         self._anim_timer.setInterval(16)
+        self._indeterminate = False
+        self._indeterminate_angle: float = 0.0
+        self._indeterminate_timer = QTimer(self)
+        self._indeterminate_timer.timeout.connect(self._indeterminate_step)
+        self._indeterminate_timer.setInterval(30)
+
+    def show_indeterminate(self) -> None:
+        self._indeterminate = True
+        self._progress = 0.0
+        self._target = 0.0
+        self._indeterminate_angle = 0.0
+        self._indeterminate_timer.start()
+        self.update()
+
+    def hide_indeterminate(self) -> None:
+        self._indeterminate = False
+        self._indeterminate_timer.stop()
+        self.update()
+
+    def _indeterminate_step(self) -> None:
+        self._indeterminate_angle = (self._indeterminate_angle + 6) % 360
+        self.update()
 
     def set_progress(self, value: float) -> None:
         self._target = max(0.0, min(1.0, value))
@@ -64,7 +86,22 @@ class CircularProgress(QFrame):
         p.drawArc(QRect(cx - inner_r, cy - inner_r, inner_r * 2, inner_r * 2),
                   90 * 16, -360 * 16)
 
-        if self._progress > 0:
+        if self._indeterminate:
+            sweep = 60
+            start_angle = int(self._indeterminate_angle * 16)
+            gradient = QConicalGradient(cx, cy, self._indeterminate_angle)
+            gradient.setColorAt(0.0, QColor(COLOR_ACCENT))
+            gradient.setColorAt(1.0, QColor(COLOR_ACCENT_HOVER))
+            progress_pen = QPen(QBrush(gradient), 10)
+            progress_pen.setWidthF(10)
+            progress_pen.setCapStyle(Qt.RoundCap)
+            p.setPen(progress_pen)
+            p.drawArc(QRect(cx - inner_r, cy - inner_r, inner_r * 2, inner_r * 2),
+                      start_angle, sweep * 16)
+            p.setFont(QFont(FONT_DISPLAY.split(",")[0].strip(), 32, QFont.Bold))
+            p.setPen(QColor(COLOR_MUTED))
+            p.drawText(QRect(0, cy - 25, w, 50), Qt.AlignCenter, "WAITING")
+        elif self._progress > 0:
             gradient = QConicalGradient(cx, cy, 90)
             gradient.setColorAt(0.0, QColor(COLOR_ACCENT))
             gradient.setColorAt(0.5, QColor(COLOR_ACCENT_HOVER))
@@ -188,6 +225,8 @@ class ProcessingScreen(QWidget):
         else:
             pct = 0.0
         if self._progress_ring:
+            if self._progress_ring._indeterminate:
+                self._progress_ring.hide_indeterminate()
             self._progress_ring.set_progress(pct)
 
         now = __import__('time').time()
@@ -222,7 +261,7 @@ class ProcessingScreen(QWidget):
         self._last_update = self._start_time
         self._last_frame = 0
         if self._progress_ring:
-            self._progress_ring.set_progress(0.0)
+            self._progress_ring.show_indeterminate()
         if self._stat_labels:
             self._stat_labels[0].setText("0 / 0")
             self._stat_labels[1].setText("--:--")

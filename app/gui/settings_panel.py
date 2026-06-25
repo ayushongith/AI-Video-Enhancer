@@ -13,6 +13,7 @@ from app.utils.constants import (
     COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
     FONT_DISPLAY, FONT_BODY, FONT_MONO,
 )
+from app.core.processing_pipeline import ProcessingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +354,46 @@ class SettingsPanel(QFrame):
         self._animation.setEndValue(target)
         self._animation.setEasingCurve(QEasingCurve.OutCubic)
         self._animation.start()
+
+    def apply_preset(self, config: ProcessingConfig) -> None:
+        res_map = {"720p": "720p", "1080p": "1080p", "2K": "2K", "4K": "4K", "8K": "8K"}
+        target_res = res_map.get(config.resolution, "1080p")
+        for btn in self._res_toggle._group.buttons():
+            if btn.text() == target_res:
+                btn.setChecked(True)
+                break
+
+        for btn in self._mode_group.buttons():
+            if btn.text() == config.mode:
+                btn.setChecked(True)
+                break
+
+        block = self._face_toggle.blockSignals(True)
+        self._face_toggle._checked = config.face_enhance
+        self._face_toggle._update_style()
+        self._face_toggle.blockSignals(False)
+
+        block = self._gpu_toggle.blockSignals(True)
+        self._gpu_toggle._checked = True
+        self._gpu_toggle._update_style()
+        self._gpu_toggle.blockSignals(False)
+
+        self._noise_slider.setValue(config.noise_reduction)
+
+        fmt_map = {"MP4 (H.264)": 0, "MP4 (H.265)": 1, "MOV": 2, "WebM": 3}
+        idx = fmt_map.get(config.format, 0)
+        self._format_combo.setCurrentIndex(idx)
+
+        block = self._interp_toggle.blockSignals(True)
+        self._interp_toggle._checked = config.interpolation
+        self._interp_toggle._update_style()
+        self._interp_toggle.blockSignals(False)
+
+        self._emit_settings()
+
+    def set_gpu_enabled(self, enabled: bool) -> None:
+        self._gpu_toggle._checked = enabled
+        self._gpu_toggle._update_style()
 
     def get_settings(self) -> dict:
         res_btn = self._res_toggle._group.checkedButton()

@@ -64,6 +64,8 @@ class VideoCanvas(QFrame):
 
 
 class PreviewScreen(QWidget):
+    enhance_requested = Signal()
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._canvas: Optional[VideoCanvas] = None
@@ -75,6 +77,7 @@ class PreviewScreen(QWidget):
         self._metadata: Optional[VideoMetadata] = None
         self._thumbnail_strip: Optional[ThumbnailStrip] = None
         self._info_panel: Optional[VideoInfoPanel] = None
+        self._enhance_btn: Optional[QPushButton] = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -117,6 +120,25 @@ class PreviewScreen(QWidget):
             lambda: self._info_panel.setVisible(not self._info_panel.isVisible())
         )
         header.addWidget(self._info_toggle)
+
+        self._enhance_btn = QPushButton("\u2728 Enhance")
+        self._enhance_btn.setFixedHeight(32)
+        self._enhance_btn.setCursor(Qt.PointingHandCursor)
+        self._enhance_btn.setStyleSheet(
+            f"QPushButton {{"
+            f"  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
+            f"    stop:0 {COLOR_ACCENT}, stop:1 {COLOR_ACCENT_HOVER});"
+            f"  color: #ffffff; border: none; border-radius: 16px;"
+            f"  font-family: {FONT_BODY}; font-size: 11px; font-weight: 600;"
+            f"  padding: 0 18px;"
+            f"}}"
+            f"QPushButton:hover {{"
+            f"  background: qlineargradient(x1:0, y1:0, x2:1, y2:1, "
+            f"    stop:0 {COLOR_ACCENT_HOVER}, stop:1 #c4b5fd);"
+            f"}}"
+        )
+        self._enhance_btn.clicked.connect(self.enhance_requested.emit)
+        header.addWidget(self._enhance_btn)
 
         self._canvas = VideoCanvas()
         layout.addWidget(self._canvas, stretch=1)

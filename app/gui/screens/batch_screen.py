@@ -151,6 +151,12 @@ class BatchScreen(QWidget):
         btn_row.addWidget(self._start_btn)
         layout.addLayout(btn_row)
 
+    def add_files(self, files: list[Path]) -> None:
+        for p in files:
+            if p not in self._files:
+                self._files.append(p)
+        self._refresh_list()
+
     def _on_add_files(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(
             self, "Select Videos", "", VIDEO_EXTENSIONS_FILTER,
