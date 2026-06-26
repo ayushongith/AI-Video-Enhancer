@@ -1,7 +1,0 @@
-2026-06-26 20:08:54,634 - app.utils.logger - INFO - Logger initialized. Log file: D:\Projects\AI-Video-Enhancer\logs\application.log
-2026-06-26 20:08:54,637 - __main__ - INFO - === AI Video Enhancer Startup ===
-2026-06-26 20:08:54,639 - app.utils.config - INFO - Configuration loaded from D:\Projects\AI-Video-Enhancer\config.json
-2026-06-26 20:08:54,642 - __main__ - INFO - Configuration loaded (theme: dark)
-2026-06-26 20:08:54,796 - app.core.ffmpeg_detector - INFO - FFmpeg detected: version 8.1.1-full_build-www.gyan.dev at C:\Users\Killua\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1.1-full_build\bin\ffmpeg.exe
-2026-06-26 20:08:54,798 - __main__ - INFO - FFmpeg detection complete: [OK] FFmpeg Found (v8.1.1-full_build-www.gyan.dev)
-2026-06-26 20:08:55,715 - app.gui.main_window - INFO - Main window initialized
