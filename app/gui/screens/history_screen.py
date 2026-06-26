@@ -149,7 +149,7 @@ class HistoryScreen(QWidget):
         self._empty_label.setVisible(False)
         self._list.setVisible(True)
         for entry in entries:
-            item = QListWidgetItem(self._list)
+            item = QListWidgetItem()
             card = _HistoryCard(entry)
             card.clicked.connect(self.open_result.emit)
             item.setSizeHint(card.sizeHint())

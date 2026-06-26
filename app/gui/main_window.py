@@ -363,11 +363,12 @@ class MainWindow(QMainWindow):
                      result.metadata.get("resolution", "")),
                 ]
                 out_path = Path(result.output_path) if result.output_path else None
+                output_size_bytes = 0
                 output_size_str = ""
                 output_bitrate_str = ""
                 if out_path and out_path.exists():
-                    size_bytes = out_path.stat().st_size
-                    output_size_str = _format_size(size_bytes)
+                    output_size_bytes = out_path.stat().st_size
+                    output_size_str = _format_size(output_size_bytes)
                     if result.metadata.get("fps") and result.metadata.get("duration"):
                         fps_v = result.metadata["fps"]
                         dur_s = result.metadata["duration"]
@@ -385,7 +386,7 @@ class MainWindow(QMainWindow):
                 source_resolution=self._current_metadata.resolution,
                 output_resolution=result.metadata.get("resolution", ""),
                 source_size=self._current_metadata.size,
-                output_size=0,
+                output_size=output_size_bytes,
                 duration_s=self._current_metadata.duration,
                 config={"format": self._config.to_dict() if hasattr(self._config, 'to_dict') else {}},
                 timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

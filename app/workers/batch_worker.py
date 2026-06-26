@@ -70,7 +70,7 @@ class BatchWorker(QThread):
 
                 self.progress.emit(idx, len(items), item.file_path.name, "Processing...")
 
-                pipeline = ProcessingPipeline(self._config)
+                pipeline = ProcessingPipeline(self._config, gpu_info=self._gpu_info)
 
                 def make_cb(idx=idx, total=len(items), name=item.file_path.name):
                     def cb(current, total_frames, msg):
