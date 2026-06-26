@@ -63,7 +63,10 @@ class Checkpointer:
 
     @property
     def has_checkpoint(self) -> bool:
-        return self._path.exists() and self._data.last_frame > 0
+        if not self._path.exists():
+            return False
+        loaded = self.load()
+        return loaded is not None and loaded.last_frame > 0
 
     @property
     def resume_from(self) -> int:
