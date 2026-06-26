@@ -1,12 +1,10 @@
 import logging
-import math
 from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
-    QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QRect, QSize
+from PySide6.QtCore import Qt, Signal, QTimer, QRect
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QFont, QConicalGradient, QBrush,
 )

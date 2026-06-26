@@ -1,12 +1,11 @@
 import logging
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QSlider, QSizePolicy,
+    QFrame, QSlider,
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QRect
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import (
     QImage, QPixmap, QPainter, QColor, QFont,
 )

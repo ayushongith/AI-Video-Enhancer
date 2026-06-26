@@ -4,17 +4,15 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QListWidget, QListWidgetItem, QSizePolicy, QFileDialog,
+    QFrame, QListWidget, QListWidgetItem, QFileDialog,
     QProgressBar,
 )
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QFont, QColor
 
 from app.utils.constants import (
-    COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
+    COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
     COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_DISPLAY, FONT_BODY, FONT_MONO, COLOR_SUCCESS, COLOR_ERROR,
-    VIDEO_EXTENSIONS_FILTER,
+    FONT_BODY, VIDEO_EXTENSIONS_FILTER,
 )
 
 logger = logging.getLogger(__name__)

@@ -9,7 +9,6 @@ import numpy as np
 from app.core.video_loader import VideoMetadata
 from app.core.frame_extractor import FrameExtractor
 from app.core.enhancers.base_enhancer import BaseEnhancer
-from app.core.enhancers.upscaler import Upscaler
 from app.core.enhancers.denoiser import Denoiser
 from app.core.enhancers.interpolator import FrameInterpolator
 from app.core.enhancers.dnn_upscaler import DNNUpscaler

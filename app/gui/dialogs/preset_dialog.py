@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QSize
 
 from app.utils.constants import (
-    COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
+    COLOR_BG, COLOR_SURFACE, COLOR_ACCENT,
     COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_DISPLAY, FONT_BODY, FONT_MONO,
+    FONT_DISPLAY, FONT_BODY,
 )
 from app.core.export_presets import ExportPresets, BUILTIN_PRESETS
 from app.core.processing_pipeline import ProcessingConfig

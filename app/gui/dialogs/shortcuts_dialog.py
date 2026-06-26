@@ -1,10 +1,9 @@
 import logging
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QGridLayout, QSizePolicy,
+    QDialog, QVBoxLayout, QLabel, QPushButton,
+    QFrame, QTableWidget, QTableWidgetItem, QHeaderView,
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QSize
 
 from app.utils.constants import (
     COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,

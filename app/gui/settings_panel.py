@@ -3,8 +3,8 @@ from typing import Optional
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QSlider, QComboBox, QButtonGroup, QCheckBox,
-    QScrollArea, QSizePolicy,
+    QFrame, QSlider, QComboBox, QButtonGroup,
+    QScrollArea,
 )
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve, QRect
 

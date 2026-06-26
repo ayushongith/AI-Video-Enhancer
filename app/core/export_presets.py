@@ -1,6 +1,6 @@
 import json
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -100,5 +100,5 @@ class ExportPresets:
         return False
 
     @property
-    def is_builtin(self) -> list[str]:
+    def builtin_names(self) -> list[str]:
         return list(BUILTIN_PRESETS.keys())

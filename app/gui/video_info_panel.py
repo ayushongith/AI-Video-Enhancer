@@ -2,10 +2,8 @@ import logging
 from typing import Optional
 from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QGridLayout, QLabel, QHBoxLayout,
-    QSizePolicy,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
 
 from app.core.video_loader import VideoMetadata
 

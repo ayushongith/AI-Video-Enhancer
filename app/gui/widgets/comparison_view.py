@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QFrame
 from PySide6.QtCore import Qt, Signal, QRect, QPoint
 from PySide6.QtGui import (
     QPainter, QColor, QPen, QFont, QPixmap, QImage,

@@ -1,10 +1,10 @@
 import logging
-from PySide6.QtWidgets import QToolBar, QPushButton, QWidget, QSizePolicy, QLabel
+from PySide6.QtWidgets import QToolBar, QPushButton, QWidget, QSizePolicy
 from PySide6.QtCore import Signal, Qt
 
 from app.utils.constants import (
     COLOR_ACCENT, COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED,
-    COLOR_BORDER, COLOR_SURFACE, COLOR_BG, FONT_BODY,
+    COLOR_SURFACE, FONT_BODY,
 )
 
 logger = logging.getLogger(__name__)

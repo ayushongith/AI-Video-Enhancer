@@ -4,17 +4,15 @@ from typing import Optional
 import numpy as np
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QGridLayout, QSizePolicy,
+    QFrame, QSizePolicy,
 )
-from PySide6.QtCore import Qt, Signal, QRect
-from PySide6.QtGui import QPainter, QColor, QPen, QFont, QLinearGradient
+from PySide6.QtCore import Qt, Signal
 
 from app.utils.constants import (
-    COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
+    COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
     COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_DISPLAY, FONT_BODY, FONT_MONO, COLOR_SUCCESS, COLOR_ERROR,
+    FONT_DISPLAY, FONT_BODY, FONT_MONO, COLOR_SUCCESS,
 )
-from app.core.video_loader import VideoMetadata
 from app.gui.widgets.comparison_view import ComparisonView
 
 logger = logging.getLogger(__name__)
