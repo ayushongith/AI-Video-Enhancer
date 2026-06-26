@@ -130,20 +130,18 @@ class ProcessingPipeline:
             fourcc = fourcc_map.get(self._config.format, cv2.VideoWriter_fourcc(*"avc1"))
 
             start_frame = 0
-            out_h, out_w = 0, 0
-            is_color = True
             if checkpointer is not None and checkpointer.has_checkpoint:
                 cp = checkpointer.load()
                 if cp is not None:
                     start_frame = cp.resume_from
                     logger.info("Resuming from frame %d", start_frame)
 
-            if start_frame == 0:
-                first = extractor.read_frame()
-                if first is None:
-                    extractor.close()
-                    return ProcessingResult(success=False, error="Empty video")
+            first = extractor.read_frame()
+            if first is None:
+                extractor.close()
+                return ProcessingResult(success=False, error="Empty video")
 
+            if start_frame == 0:
                 result.before_frame = first.copy()
 
                 processed_first = first
@@ -167,6 +165,8 @@ class ProcessingPipeline:
                     checkpointer.update(0, total, output=str(output_path))
                     checkpointer.save()
             else:
+                out_h, out_w = first.shape[:2]
+                is_color = len(first.shape) == 3
                 writer = cv2.VideoWriter(
                     str(output_path), fourcc, fps, (out_w, out_h), is_color,
                 )
