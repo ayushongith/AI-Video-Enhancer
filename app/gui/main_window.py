@@ -13,10 +13,8 @@ from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from app.utils.constants import (
     WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT,
-    SUPPORTED_VIDEO_EXTENSIONS, VIDEO_EXTENSIONS_FILTER,
-    STYLESHEET, COLOR_BG, COLOR_SURFACE, COLOR_ELEVATED,
-    COLOR_ACCENT, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_BODY, FONT_MONO, OUTPUTS_DIR,
+    VIDEO_EXTENSIONS_FILTER, STYLESHEET,
+    COLOR_MUTED, COLOR_BORDER, FONT_MONO, OUTPUTS_DIR,
 )
 from app.utils.config import ConfigManager
 from app.core.ffmpeg_detector import FFmpegDetector
