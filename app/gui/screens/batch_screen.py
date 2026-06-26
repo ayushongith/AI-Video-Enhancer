@@ -12,7 +12,8 @@ from PySide6.QtCore import Qt, Signal, QSize
 from app.utils.constants import (
     COLOR_SURFACE, COLOR_ELEVATED, COLOR_ACCENT,
     COLOR_ACCENT_HOVER, COLOR_TEXT, COLOR_MUTED, COLOR_BORDER,
-    FONT_BODY, VIDEO_EXTENSIONS_FILTER,
+    COLOR_ERROR, FONT_DISPLAY, FONT_MONO, FONT_BODY,
+    VIDEO_EXTENSIONS_FILTER,
 )
 
 logger = logging.getLogger(__name__)
